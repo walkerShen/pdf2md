@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF 转 Markdown 转换器</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <header class="header">
+                <h1>PDF 转 Markdown 转换器</h1>
+                <p class="subtitle">将您的PDF文件快速转换为Markdown格式</p>
+            </header>
+
+            <main class="main-content">
+                <!-- 文件上传区域 -->
+                <section class="upload-section">
+                    <h2>选择PDF文件</h2>
+                    <div class="upload-area" 
+                         :class="{ 'drag-over': isDragOver }"
+                         @dragover.prevent="handleDragOver"
+                         @dragleave.prevent="handleDragLeave"
+                         @drop.prevent="handleDrop">
+                        
+                        <input type="file" 
+                               id="pdfUpload" 
+                               accept=".pdf" 
+                               @change="handleFileSelect"
+                               style="display: none;">
+                        
+                        <div v-if="!selectedFile" class="upload-placeholder">
+                            <div class="upload-icon">📄</div>
+                            <p>拖拽PDF文件到此处，或者</p>
+                            <button class="select-file-btn" @click="triggerFileSelect">选择文件</button>
+                        </div>
+                        
+                        <div v-else class="file-selected">
+                            <div class="file-info">
+                                <span class="file-icon">📄</span>
+                                <span class="file-name">{{ selectedFile.name }}</span>
+                                <span class="file-size">({{ formatFileSize(selectedFile.size) }})</span>
+                            </div>
+                            <button class="change-file-btn" @click="clearFile">更换文件</button>
+                        </div>
+                    </div>
+                    
+                    <button class="convert-btn" 
+                            :disabled="!selectedFile || isConverting"
+                            @click="convertToMarkdown">
+                        <span v-if="isConverting">转换中...</span>
+                        <span v-else>转换为 Markdown</span>
+                    </button>
+                </section>
+
+                <!-- Markdown输出区域 -->
+                <section class="output-section">
+                    <h2>转换结果</h2>
+                    
+                    <!-- 图片信息显示 -->
+                    <div v-if="imageCount > 0" class="image-info">
+                        <div class="image-header">
+                            <h3>📷 提取的图片 ({{ imageCount }} 张)</h3>
+                            <button class="download-all-images-btn" @click="downloadAllImages">
+                                下载所有图片
+                            </button>
+                        </div>
+                        <div class="image-list">
+                            <div v-for="image in extractedImages" :key="image.filename" class="image-item">
+                                <div class="image-info-left">
+                                    <span class="image-name">{{ image.filename }}</span>
+                                    <span class="image-details">第{{ image.page }}页 - {{ image.width }}×{{ image.height }}</span>
+                                </div>
+                                <button class="download-single-image-btn" 
+                                        :class="{ 'downloaded': isImageDownloaded(image.filename) }"
+                                        @click="downloadImage(image)">
+                                    {{ isImageDownloaded(image.filename) ? '已下载' : '下载' }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="output-area">
+                        <textarea v-model="markdownContent" 
+                                  readonly 
+                                  placeholder="您转换的 Markdown 将在此处显示..."
+                                  class="markdown-output"></textarea>
+                        
+                        <div class="output-actions">
+                            <button class="copy-btn" 
+                                    :disabled="!markdownContent"
+                                    @click="copyToClipboard">
+                                {{ copyButtonText }}
+                            </button>
+                            
+                            <button class="download-btn" 
+                                    :disabled="!markdownContent"
+                                    @click="downloadMarkdown">
+                                下载 .md 文件
+                            </button>
+                            
+                            <button class="download-package-btn" 
+                                    :disabled="!markdownContent"
+                                    @click="downloadCompletePackage">
+                                下载完整包
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 错误消息显示 -->
+                <div v-if="errorMessage" class="error-message">
+                    <span class="error-icon">⚠️</span>
+                    <span>{{ errorMessage }}</span>
+                    <button class="close-error" @click="clearError">×</button>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html> 
