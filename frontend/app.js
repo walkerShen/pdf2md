@@ -113,8 +113,19 @@ createApp({
         if (response.ok && result.status === "success") {
           this.markdownContent = result.markdown_content;
           this.originalFilename = result.filename;
+
+          // 保存提取的图片信息
           this.extractedImages = result.images || [];
           this.imageCount = result.image_count || 0;
+
+          // 确保每个图片对象有完整的信息
+          this.extractedImages = this.extractedImages.map((img) => {
+            // 确保path字段存在
+            if (!img.path) {
+              img.path = `${img.filename}`;
+            }
+            return img;
+          });
 
           // 处理Markdown中的图片链接，使其指向本地路径
           if (this.extractedImages.length > 0) {
@@ -264,6 +275,78 @@ createApp({
           : "";
 
       alert(`下载完成！${imageInfo}`);
+    },
+
+    // 下载ZIP压缩包（包含Markdown和图片）
+    async downloadZipPackage() {
+      if (!this.markdownContent) {
+        this.showError("没有内容可下载");
+        return;
+      }
+
+      this.showError(
+        `正在创建压缩包...（包含Markdown和${this.imageCount}张图片）`
+      );
+
+      try {
+        // 准备请求数据
+        const requestData = {
+          markdown_content: this.markdownContent,
+          images: this.extractedImages,
+          filename: this.originalFilename || "converted",
+        };
+
+        // 发送请求到后端创建ZIP包
+        const response = await fetch(
+          "http://localhost:5000/api/create_package",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(requestData),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "创建压缩包失败");
+        }
+
+        // 下载生成的ZIP文件
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+
+        // 准备文件名
+        const baseFilename = this.originalFilename
+          ? this.originalFilename.replace(/\.pdf$/i, "")
+          : "converted";
+        const zipFilename = `${baseFilename}_package.zip`;
+
+        // 创建下载链接并触发下载
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = zipFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        // 清理URL对象
+        URL.revokeObjectURL(url);
+
+        // 清除错误提示
+        this.clearError();
+
+        // 显示成功消息
+        setTimeout(() => {
+          alert(
+            `压缩包下载成功！\n包含Markdown文件和${this.imageCount}张图片。\n文件名：${zipFilename}`
+          );
+        }, 500);
+      } catch (error) {
+        console.error("下载压缩包失败:", error);
+        this.showError(`下载压缩包失败: ${error.message}`);
+      }
     },
 
     // 格式化文件大小

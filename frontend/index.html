@@ -59,7 +59,8 @@
                 <section class="output-section">
                     <h2>转换结果</h2>
                     
-                    <!-- 图片信息显示 -->
+                    <!-- 图片信息显示 - 已隐藏 -->
+                    <!--
                     <div v-if="imageCount > 0" class="image-info">
                         <div class="image-header">
                             <h3>📷 提取的图片 ({{ imageCount }} 张)</h3>
@@ -81,6 +82,7 @@
                             </div>
                         </div>
                     </div>
+                    -->
                     
                     <div class="output-area">
                         <textarea v-model="markdownContent" 
@@ -89,22 +91,11 @@
                                   class="markdown-output"></textarea>
                         
                         <div class="output-actions">
-                            <button class="copy-btn" 
+                            <!-- 只保留下载压缩包按钮 -->
+                            <button class="download-zip-btn full-width-btn" 
                                     :disabled="!markdownContent"
-                                    @click="copyToClipboard">
-                                {{ copyButtonText }}
-                            </button>
-                            
-                            <button class="download-btn" 
-                                    :disabled="!markdownContent"
-                                    @click="downloadMarkdown">
-                                下载 .md 文件
-                            </button>
-                            
-                            <button class="download-package-btn" 
-                                    :disabled="!markdownContent"
-                                    @click="downloadCompletePackage">
-                                下载完整包
+                                    @click="downloadZipPackage">
+                                下载转换结果(含图片)
                             </button>
                         </div>
                     </div>

@@ -210,10 +210,11 @@ body {
 /* 输出操作按钮 */
 .output-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
 }
 
-.copy-btn, .download-btn, .download-package-btn {
+.copy-btn, .download-btn, .download-package-btn, .download-zip-btn {
     flex: 1;
     padding: 12px;
     border: none;
@@ -222,6 +223,7 @@ body {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
+    min-width: 140px;
 }
 
 .copy-btn {
@@ -243,15 +245,38 @@ body {
 }
 
 .download-package-btn {
-    background: #e74c3c;
+    background-color: #795548;
     color: white;
 }
 
-.download-package-btn:hover:not(:disabled) {
-    background: #c0392b;
+.download-zip-btn {
+    background-color: #2196F3;
+    color: white;
+    font-weight: 600;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
 }
 
-.copy-btn:disabled, .download-btn:disabled, .download-package-btn:disabled {
+.full-width-btn {
+    width: 100%;
+    padding: 15px;
+    font-size: 1.1rem;
+    text-align: center;
+    justify-content: center;
+}
+
+.download-package-btn:hover:not(:disabled) {
+    background: #654a3d;
+}
+
+.download-zip-btn:hover:not(:disabled) {
+    background: #1976D2;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(33, 150, 243, 0.3);
+}
+
+.copy-btn:disabled, .download-btn:disabled, .download-package-btn:disabled, .download-zip-btn:disabled {
     background: #bdc3c7;
     cursor: not-allowed;
 }
@@ -406,25 +431,27 @@ body {
 @media (max-width: 768px) {
     .main-content {
         grid-template-columns: 1fr;
-        gap: 20px;
     }
-    
+
     .header h1 {
         font-size: 2rem;
     }
-    
+
     .upload-section, .output-section {
         padding: 20px;
     }
-    
+
     .output-actions {
         flex-direction: column;
     }
     
+    .copy-btn, .download-btn, .download-package-btn, .download-zip-btn {
+        width: 100%;
+    }
+
     .image-header {
         flex-direction: column;
-        align-items: stretch;
-        gap: 10px;
+        align-items: flex-start;
     }
     
     .image-item {

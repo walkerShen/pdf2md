@@ -1,6 +1,8 @@
 from flask import Blueprint, jsonify, request, current_app, send_file
 import os
 import uuid
+import zipfile
+import io
 from werkzeug.utils import secure_filename
 from app.converter import pdf_to_markdown
 
@@ -8,8 +10,17 @@ main_bp = Blueprint('main', __name__)
 
 # 创建临时文件存储目录
 TEMP_UPLOAD_FOLDER = os.path.abspath('temp_uploads')
-if not os.path.exists(TEMP_UPLOAD_FOLDER):
-    os.makedirs(TEMP_UPLOAD_FOLDER)
+
+# 确保临时目录存在
+def ensure_temp_dir_exists():
+    """确保临时目录存在"""
+    if not os.path.exists(TEMP_UPLOAD_FOLDER):
+        os.makedirs(TEMP_UPLOAD_FOLDER)
+        print(f"已创建临时目录: {TEMP_UPLOAD_FOLDER}")
+    return TEMP_UPLOAD_FOLDER
+
+# 初始化创建临时目录
+ensure_temp_dir_exists()
 
 # 文件大小限制 (50MB)
 MAX_CONTENT_LENGTH = 50 * 1024 * 1024
@@ -57,10 +68,13 @@ def upload_pdf():
             "message": f"文件大小超过50MB限制。"
         }), 413
     
+    # 确保临时目录存在
+    temp_dir = ensure_temp_dir_exists()
+    
     # 生成安全的文件名并保存文件
     filename = secure_filename(file.filename)
     temp_file_id = str(uuid.uuid4())
-    temp_filepath = os.path.join(TEMP_UPLOAD_FOLDER, f"{temp_file_id}_{filename}")
+    temp_filepath = os.path.join(temp_dir, f"{temp_file_id}_{filename}")
     
     file.save(temp_filepath)
     
@@ -105,13 +119,13 @@ def convert_pdf_to_md():
         }), 413
     
     try:
+        # 确保临时目录存在
+        temp_dir = ensure_temp_dir_exists()
+        
         # 保存上传的文件到临时目录
         filename = secure_filename(file.filename)
         temp_file_id = str(uuid.uuid4())
-        temp_filepath = os.path.join(TEMP_UPLOAD_FOLDER, f"{temp_file_id}_{filename}")
-        
-        # 确保目录存在
-        os.makedirs(TEMP_UPLOAD_FOLDER, exist_ok=True)
+        temp_filepath = os.path.join(temp_dir, f"{temp_file_id}_{filename}")
         
         print(f"保存文件到: {temp_filepath}")
         print(f"TEMP_UPLOAD_FOLDER: {TEMP_UPLOAD_FOLDER}")
@@ -197,4 +211,89 @@ def serve_image(filename):
         return jsonify({
             "status": "error",
             "message": f"获取图片时出错：{str(e)}"
+        }), 500
+
+@main_bp.route('/api/create_package', methods=['POST'])
+def create_package():
+    """创建包含Markdown和图片的ZIP包"""
+    try:
+        # 从请求中获取markdown内容和图片信息
+        data = request.json
+        if not data or 'markdown_content' not in data or 'images' not in data:
+            return jsonify({
+                "status": "error",
+                "message": "请提供Markdown内容和图片信息"
+            }), 400
+        
+        markdown_content = data['markdown_content']
+        images = data['images']
+        filename = data.get('filename', 'converted')
+        
+        # 确保临时目录存在
+        temp_dir = ensure_temp_dir_exists()
+        
+        # 创建内存中的ZIP文件
+        memory_file = io.BytesIO()
+        with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # 添加Markdown文件
+            md_filename = f"{filename.replace('.pdf', '')}.md"
+            zf.writestr(md_filename, markdown_content)
+            
+            # 添加图片文件
+            image_count = 0
+            missing_images = []
+            
+            for img in images:
+                found = False
+                
+                # 尝试直接使用图片路径（如果存在）
+                if 'path' in img and os.path.exists(img['path']):
+                    zf.write(img['path'], arcname=img['filename'])
+                    found = True
+                    image_count += 1
+                    print(f"已添加图片(直接路径): {img['path']} -> {img['filename']}")
+                    continue
+                
+                # 在临时目录中查找图片
+                for root, dirs, files in os.walk(temp_dir):
+                    if img['filename'] in files:
+                        img_path = os.path.join(root, img['filename'])
+                        zf.write(img_path, arcname=img['filename'])
+                        found = True
+                        image_count += 1
+                        print(f"已添加图片(查找): {img_path} -> {img['filename']}")
+                        break
+                
+                if not found:
+                    missing_images.append(img['filename'])
+                    print(f"未找到图片: {img['filename']}")
+            
+            # 如果有未找到的图片，添加一个说明文件
+            if missing_images:
+                missing_text = "以下图片未能在系统中找到，可能需要重新转换PDF：\n\n"
+                for img_name in missing_images:
+                    missing_text += f"- {img_name}\n"
+                zf.writestr("missing_images.txt", missing_text)
+        
+        # 准备响应
+        memory_file.seek(0)
+        package_filename = f"{filename.replace('.pdf', '')}_package.zip"
+        
+        print(f"ZIP包已创建，总计 {image_count} 张图片，{len(missing_images)} 张图片未找到")
+        
+        return send_file(
+            memory_file,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=package_filename
+        )
+        
+    except Exception as e:
+        print(f"创建ZIP包时出错: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        return jsonify({
+            "status": "error",
+            "message": f"创建ZIP包时出错: {str(e)}"
         }), 500 
