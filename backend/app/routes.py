@@ -4,7 +4,7 @@ import uuid
 import zipfile
 import io
 from werkzeug.utils import secure_filename
-from app.converter import pdf_to_markdown
+from app.converter import pdf_to_markdown, pdf_to_word, pdf_to_cropped_images
 
 main_bp = Blueprint('main', __name__)
 
@@ -296,4 +296,191 @@ def create_package():
         return jsonify({
             "status": "error",
             "message": f"创建ZIP包时出错: {str(e)}"
-        }), 500 
+        }), 500
+
+@main_bp.route('/api/convert_pdf_to_word', methods=['POST'])
+def convert_pdf_to_word():
+    """PDF到Word转换端点"""
+    
+    # 使用与convert_pdf_to_md相同的验证逻辑
+    if 'file' not in request.files:
+        return jsonify({
+            "status": "error",
+            "message": "未找到文件。请确保使用'file'字段上传PDF文件。"
+        }), 400
+    
+    file = request.files['file']
+    
+    # 检查文件名是否为空
+    if file.filename == '':
+        return jsonify({
+            "status": "error",
+            "message": "未选择文件。"
+        }), 400
+    
+    # 检查文件类型
+    if not file.filename.lower().endswith('.pdf') or file.mimetype != 'application/pdf':
+        return jsonify({
+            "status": "error",
+            "message": "无效的文件类型。只接受PDF文件。"
+        }), 415
+    
+    # 检查文件大小
+    content_length = request.content_length
+    if content_length and content_length > MAX_CONTENT_LENGTH:
+        return jsonify({
+            "status": "error",
+            "message": f"文件大小超过50MB限制。"
+        }), 413
+    
+    # 确保临时目录存在
+    temp_dir = ensure_temp_dir_exists()
+    
+    # 生成安全的文件名并保存文件
+    filename = secure_filename(file.filename)
+    temp_file_id = str(uuid.uuid4())
+    temp_filepath = os.path.join(temp_dir, f"{temp_file_id}_{filename}")
+    
+    try:
+        # 保存上传的文件
+        file.save(temp_filepath)
+        
+        # 生成Word文档输出路径
+        base_filename = os.path.splitext(filename)[0]
+        word_filename = f"{temp_file_id}_{base_filename}.docx"
+        word_filepath = os.path.join(temp_dir, word_filename)
+        
+        # 调用转换函数
+        result = pdf_to_word(temp_filepath, word_filepath)
+        
+        if result["status"] == "success":
+            # 转换成功，返回文件下载
+            return send_file(
+                result["word_path"],
+                mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                as_attachment=True,
+                download_name=f"{base_filename}.docx"
+            )
+        else:
+            # 转换失败
+            return jsonify({
+                "status": "error",
+                "message": result["message"]
+            }), 500
+    
+    except Exception as e:
+        # 处理异常
+        error_msg = f"转换过程中出错: {str(e)}"
+        print(error_msg)
+        
+        return jsonify({
+            "status": "error",
+            "message": error_msg
+        }), 500
+    
+    finally:
+        # 清理临时文件
+        try:
+            if os.path.exists(temp_filepath):
+                os.remove(temp_filepath)
+                print(f"已删除临时PDF文件: {temp_filepath}")
+        except Exception as e:
+            print(f"删除临时PDF文件时出错: {str(e)}")
+
+@main_bp.route('/api/convert_pdf_to_images', methods=['POST'])
+def convert_pdf_to_images():
+    """PDF转裁剪图片端点"""
+    
+    # 检查是否有文件在请求中
+    if 'file' not in request.files:
+        return jsonify({
+            "status": "error",
+            "message": "未找到文件。请确保使用'file'字段上传PDF文件。"
+        }), 400
+    
+    file = request.files['file']
+    
+    # 检查文件名是否为空
+    if file.filename == '':
+        return jsonify({
+            "status": "error",
+            "message": "未选择文件。"
+        }), 400
+    
+    # 检查文件类型
+    if not file.filename.lower().endswith('.pdf'):
+        return jsonify({
+            "status": "error",
+            "message": "只支持PDF文件。"
+        }), 400
+    
+    # 检查文件大小
+    file.seek(0, 2)  # 移动到文件末尾
+    file_size = file.tell()
+    file.seek(0)  # 重置文件指针
+    
+    if file_size > MAX_CONTENT_LENGTH:
+        return jsonify({
+            "status": "error",
+            "message": f"文件太大。最大支持 {MAX_CONTENT_LENGTH // (1024*1024)} MB。"
+        }), 413
+    
+    try:
+        # 确保临时目录存在
+        temp_dir = ensure_temp_dir_exists()
+        
+        # 生成唯一的文件名
+        unique_id = str(uuid.uuid4())
+        original_filename = secure_filename(file.filename)
+        base_filename = os.path.splitext(original_filename)[0]
+        temp_filename = f"{unique_id}_{original_filename}"
+        temp_filepath = os.path.join(temp_dir, temp_filename)
+        
+        # 保存上传的文件
+        file.save(temp_filepath)
+        print(f"已保存临时PDF文件: {temp_filepath}")
+        
+        # 调用裁剪转换函数
+        result = pdf_to_cropped_images(temp_filepath, temp_dir)
+        
+        if result["status"] == "success":
+            # 转换成功，返回ZIP文件下载
+            return send_file(
+                result["zip_path"],
+                mimetype='application/zip',
+                as_attachment=True,
+                download_name=f"{base_filename}_cropped_images.zip"
+            )
+        else:
+            # 转换失败
+            return jsonify({
+                "status": "error",
+                "message": result["message"]
+            }), 500
+    
+    except Exception as e:
+        # 处理异常
+        error_msg = f"裁剪过程中出错: {str(e)}"
+        print(error_msg)
+        
+        return jsonify({
+            "status": "error",
+            "message": error_msg
+        }), 500
+    
+    finally:
+        # 清理临时文件
+        try:
+            if os.path.exists(temp_filepath):
+                os.remove(temp_filepath)
+                print(f"已删除临时PDF文件: {temp_filepath}")
+        except Exception as e:
+            print(f"删除临时PDF文件时出错: {str(e)}")
+        
+        # 清理生成的ZIP文件（在发送后）
+        try:
+            if 'result' in locals() and result.get("zip_path") and os.path.exists(result["zip_path"]):
+                os.remove(result["zip_path"])
+                print(f"已删除临时ZIP文件: {result['zip_path']}")
+        except Exception as e:
+            print(f"删除临时ZIP文件时出错: {str(e)}")

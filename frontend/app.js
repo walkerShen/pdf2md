@@ -144,6 +144,122 @@ createApp({
       }
     },
 
+    // 转换PDF到裁剪图片
+    async convertToImages() {
+      if (!this.selectedFile) return;
+
+      this.isConverting = true;
+      this.clearError();
+
+      try {
+        const formData = new FormData();
+        formData.append("file", this.selectedFile);
+
+        const response = await fetch(
+          "http://localhost:5000/api/convert_pdf_to_images",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        if (response.ok) {
+          // 获取文件名
+          const contentDisposition = response.headers.get('Content-Disposition');
+          let filename = 'cropped_images.zip';
+          if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+            if (filenameMatch) {
+              filename = filenameMatch[1];
+            }
+          }
+
+          // 下载文件
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          
+          // 清理URL对象
+          URL.revokeObjectURL(url);
+          
+          // 显示成功消息
+          this.showSuccess(`裁剪图片压缩包已成功下载: ${filename}`);
+        } else {
+          const result = await response.json();
+          this.showError(result.message || "裁剪失败，请重试。");
+        }
+      } catch (error) {
+        console.error("裁剪错误:", error);
+        this.showError("网络错误或服务器无响应。请检查后端服务是否正在运行。");
+      } finally {
+        this.isConverting = false;
+      }
+    },
+
+    // 转换PDF到Word
+    async convertToWord() {
+      if (!this.selectedFile) return;
+
+      this.isConverting = true;
+      this.clearError();
+
+      try {
+        const formData = new FormData();
+        formData.append("file", this.selectedFile);
+
+        const response = await fetch(
+          "http://localhost:5000/api/convert_pdf_to_word",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        if (response.ok) {
+          // 获取文件名
+          const contentDisposition = response.headers.get('Content-Disposition');
+          let filename = 'converted.docx';
+          if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+            if (filenameMatch) {
+              filename = filenameMatch[1];
+            }
+          }
+
+          // 下载文件
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          
+          // 清理URL对象
+          URL.revokeObjectURL(url);
+          
+          // 显示成功消息
+          this.showSuccess(`Word文档已成功下载: ${filename}`);
+        } else {
+          const result = await response.json();
+          this.showError(result.message || "转换失败，请重试。");
+        }
+      } catch (error) {
+        console.error("转换错误:", error);
+        this.showError("网络错误或服务器无响应。请检查后端服务是否正在运行。");
+      } finally {
+        this.isConverting = false;
+      }
+    },
+
     // 下载单个图片
     async downloadImage(image) {
       try {
@@ -363,6 +479,14 @@ createApp({
     // 显示错误消息
     showError(message) {
       this.errorMessage = message;
+    },
+
+    // 显示成功消息
+    showSuccess(message) {
+      // 清除错误消息
+      this.clearError();
+      // 显示成功提示
+      alert(message);
     },
 
     // 清除错误消息

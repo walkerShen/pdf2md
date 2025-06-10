@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF 转 Markdown 转换器</title>
+    <title>PDF转换器</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 </head>
@@ -11,8 +11,8 @@
     <div id="app">
         <div class="container">
             <header class="header">
-                <h1>PDF 转 Markdown 转换器</h1>
-                <p class="subtitle">将您的PDF文件快速转换为Markdown格式</p>
+                <h1>PDF转换器</h1>
+                <p class="subtitle">将您的PDF文件快速转换为Markdown或Word格式</p>
             </header>
 
             <main class="main-content">
@@ -47,12 +47,28 @@
                         </div>
                     </div>
                     
-                    <button class="convert-btn" 
-                            :disabled="!selectedFile || isConverting"
-                            @click="convertToMarkdown">
-                        <span v-if="isConverting">转换中...</span>
-                        <span v-else>转换为 Markdown</span>
-                    </button>
+                    <div class="convert-buttons">
+                        <button class="convert-btn" 
+                                :disabled="!selectedFile || isConverting"
+                                @click="convertToMarkdown">
+                            <span v-if="isConverting">转换中...</span>
+                            <span v-else>转换为 Markdown</span>
+                        </button>
+                        
+                        <button class="convert-btn convert-word-btn" 
+                                :disabled="!selectedFile || isConverting"
+                                @click="convertToWord">
+                            <span v-if="isConverting">转换中...</span>
+                            <span v-else>转换为 Word</span>
+                        </button>
+                        
+                        <button class="convert-btn convert-images-btn" 
+                                :disabled="!selectedFile || isConverting"
+                                @click="convertToImages">
+                            <span v-if="isConverting">转换中...</span>
+                            <span v-else>裁剪为图片</span>
+                        </button>
+                    </div>
                 </section>
 
                 <!-- Markdown输出区域 -->
@@ -113,4 +129,4 @@
 
     <script src="app.js"></script>
 </body>
-</html> 
+</html>

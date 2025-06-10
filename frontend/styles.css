@@ -155,9 +155,17 @@ body {
     background: #c0392b;
 }
 
+/* 转换按钮容器 */
+.convert-buttons {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
 /* 转换按钮 */
 .convert-btn {
-    width: 100%;
+    flex: 1;
+    min-width: 150px;
     background: #27ae60;
     color: white;
     border: none;
@@ -180,6 +188,38 @@ body {
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
+}
+
+/* Word转换按钮特殊样式 */
+.convert-word-btn {
+    background: #3498db;
+}
+
+.convert-word-btn:hover:not(:disabled) {
+    background: #2980b9;
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+}
+
+/* 裁剪图片按钮特殊样式 */
+.convert-images-btn {
+    background: #f39c12;
+}
+
+.convert-images-btn:hover:not(:disabled) {
+    background: #e67e22;
+    box-shadow: 0 5px 15px rgba(243, 156, 18, 0.3);
+}
+
+/* 响应式设计 - 小屏幕时按钮垂直排列 */
+@media (max-width: 768px) {
+    .convert-buttons {
+        flex-direction: column;
+    }
+    
+    .convert-btn {
+        width: 100%;
+        min-width: auto;
+    }
 }
 
 /* 输出区域样式 */
@@ -467,4 +507,4 @@ body {
     .download-single-image-btn {
         align-self: flex-end;
     }
-} 
+}
